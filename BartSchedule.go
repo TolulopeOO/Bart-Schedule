@@ -121,7 +121,7 @@ func (m model) View() string {
 			if i == m.cursor {
 				cursor = ">"
 			}
-			out += fmt.Sprintf("%s %s (%s), %s\n", cursor, s.Name, s.Abbr, s.City)
+			out += fmt.Sprintf("%s %s, %s\n", cursor, s.Name, s.City)
 		}
 		if m.info != "" {
 			out += "\n" + m.info + "\n"
