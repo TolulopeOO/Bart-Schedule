@@ -16,6 +16,7 @@ type model struct {
 	stations []station
 	err      error
 	api_key  string
+	cursor   int
 }
 
 type apiResponse struct {
@@ -36,6 +37,7 @@ func initialModel(api_key string) model {
 	return model{
 		message: "\nLoading Bart stations...",
 		api_key: api_key,
+		cursor:  0,
 	}
 }
 
@@ -72,6 +74,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q", "Q":
 			return m, tea.Quit
+		case "up", "k":
+			if m.cursor > 0 {
+				m.cursor--
+			}
+			return m, nil
+		case "down", "j":
+			if m.cursor < len(m.stations)-1 {
+				m.cursor++
+			}
+			return m, nil
 		}
 	case []station:
 		m.stations = msg
@@ -91,8 +103,12 @@ func (m model) View() string {
 	}
 	if len(m.stations) > 0 {
 		out := "BART Stations:\n"
-		for _, s := range m.stations {
-			out += fmt.Sprintf("- %s (%s), %s\n", s.Name, s.Abbr, s.City)
+		for i, s := range m.stations {
+			cursor := " "
+			if i == m.cursor {
+				cursor = ">"
+			}
+			out += fmt.Sprintf("%s %s (%s), %s\n", cursor, s.Name, s.Abbr, s.City)
 		}
 		return out + "\nPress 'q' to quit."
 	}
@@ -102,7 +118,7 @@ func (m model) View() string {
 func main() {
 	api_key := os.Getenv("BART_API_KEY")
 	if api_key == "" {
-		fmt.Println("Please set BART_API_KEY environment variable: \n\nexport BART_API_KEY=(your api key)\n")
+		fmt.Println("Please set BART_API_KEY environment variable: \n\nexport BART_API_KEY=(your api key)\n ")
 		os.Exit(1)
 	}
 
