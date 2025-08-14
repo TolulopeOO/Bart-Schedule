@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -84,10 +83,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 			return m, nil
+		case "r", "R":
+			m.message = "\nRefreshing stations..."
+			m.cursor = 0
+			m.stations = nil
+			return m, fetchStations(m.api_key)
 		}
 	case []station:
 		m.stations = msg
-		m.message = "Loaded stations!"
+		m.message = "\nLoaded..."
 		return m, nil
 	case error:
 		m.err = msg
@@ -102,7 +106,7 @@ func (m model) View() string {
 		return fmt.Sprintf("%s\n\nPress 'q' to quit.", m.message)
 	}
 	if len(m.stations) > 0 {
-		out := "BART Stations:\n"
+		out := "\nBART Stations:\n\n"
 		for i, s := range m.stations {
 			cursor := " "
 			if i == m.cursor {
@@ -110,29 +114,21 @@ func (m model) View() string {
 			}
 			out += fmt.Sprintf("%s %s (%s), %s\n", cursor, s.Name, s.Abbr, s.City)
 		}
-		return out + "\nPress 'q' to quit."
+		return out + "\nPress 'q' to quit. Press 'r'to refresh"
 	}
-	return fmt.Sprintf("%s\n\nPress 'q' to quit.", m.message)
+	return fmt.Sprintf("%s\n\nPress 'q' to quit. Press 'r'to refresh", m.message)
 }
 
 func main() {
 	api_key := os.Getenv("BART_API_KEY")
 	if api_key == "" {
-		fmt.Println("Please set BART_API_KEY environment variable: \n\nexport BART_API_KEY=(your api key)\n ")
+		fmt.Println("\nPlease set BART_API_KEY environment variable: \n\nexport BART_API_KEY=(your api key)\n ")
 		os.Exit(1)
 	}
 
 	p := tea.NewProgram(initialModel(api_key))
 	if err := p.Start(); err != nil {
-		fmt.Printf("Error starting program: %v\n", err)
+		fmt.Printf("\nError starting program: %v\n", err)
 		os.Exit(1)
 	}
-
-	// Temporary usage to prevent import removal
-	_ = fmt.Sprintf
-	_ = http.StatusOK
-	_ = os.Getenv
-	_ = time.Now
-	_ = tea.NewProgram
-	// -----------
 }
