@@ -16,6 +16,7 @@ type model struct {
 	err      error
 	api_key  string
 	cursor   int
+	info     string
 }
 
 type apiResponse struct {
@@ -37,6 +38,7 @@ func initialModel(api_key string) model {
 		message: "\nLoading Bart stations...",
 		api_key: api_key,
 		cursor:  0,
+		info:    "",
 	}
 }
 
@@ -87,7 +89,14 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.message = "\nRefreshing stations..."
 			m.cursor = 0
 			m.stations = nil
+			m.info = ""
 			return m, fetchStations(m.api_key)
+		case "enter":
+			if len(m.stations) > 0 {
+				selected := m.stations[m.cursor]
+				m.info = "this is " + selected.Abbr
+			}
+			return m, nil
 		}
 	case []station:
 		m.stations = msg
@@ -114,9 +123,13 @@ func (m model) View() string {
 			}
 			out += fmt.Sprintf("%s %s (%s), %s\n", cursor, s.Name, s.Abbr, s.City)
 		}
-		return out + "\nPress 'q' to quit. Press 'r'to refresh"
+		if m.info != "" {
+			out += "\n" + m.info + "\n"
+		}
+
+		return out + "\nPress 'q' to quit. Press 'r' to refresh"
 	}
-	return fmt.Sprintf("%s\n\nPress 'q' to quit. Press 'r'to refresh", m.message)
+	return fmt.Sprintf("%s\n\n%s\n\nPress 'q' to quit. Press 'r' to refresh", m.message, m.info)
 }
 
 func main() {
