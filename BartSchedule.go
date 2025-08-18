@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -31,6 +32,27 @@ type station struct {
 	Name string `json:"name"`
 	Abbr string `json:"abbr"`
 	City string `json:"city"`
+}
+
+type etdResponse struct {
+	Root struct {
+		Station []struct {
+			Abbr string `json:"abbr"`
+			Name string `json:"name"`
+			ETD  []struct {
+				Destination string `json:"destination"`
+				Estimate    []struct {
+					Minutes  string `json:"minutes"`
+					Platform string `json:"platform"`
+				} `json:"estimate"`
+			} `json:"etd"`
+		} `json:"station"`
+	} `json:"root"`
+}
+
+type departureInfo struct {
+	Minutes  string
+	Platform string
 }
 
 func initialModel(api_key string) model {
@@ -69,6 +91,48 @@ func fetchStations(apiKey string) tea.Cmd {
 	}
 }
 
+func getDepartures(apiKey, stationAbbr string) (map[string][]departureInfo, error) {
+	url := fmt.Sprintf(
+		"https://api.bart.gov/api/etd.aspx?cmd=etd&orig=%s&key=%s&json=y",
+		stationAbbr, apiKey,
+	)
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	var data etdResponse
+	if err := json.Unmarshal(body, &data); err != nil {
+		return nil, err
+	}
+
+	departures := make(map[string][]departureInfo)
+
+	if len(data.Root.Station) == 0 {
+		return departures, nil
+	}
+
+	for _, st := range data.Root.Station {
+		for _, etd := range st.ETD {
+			dest := etd.Destination
+			for _, est := range etd.Estimate {
+				departures[dest] = append(departures[dest], departureInfo{
+					Minutes:  est.Minutes,
+					Platform: est.Platform,
+				})
+			}
+		}
+	}
+
+	return departures, nil
+}
+
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
@@ -94,7 +158,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "enter":
 			if len(m.stations) > 0 {
 				selected := m.stations[m.cursor]
-				m.info = "this is " + selected.Abbr
+				deps, err := getDepartures(m.api_key, selected.Abbr)
+				if err != nil {
+					m.info = fmt.Sprintf("Error fetching departures: %v", err)
+					return m, nil
+				}
+
+				var infoStr string
+				infoStr = selected.Name + "\n\n"
+				for dest, depList := range deps {
+					infoStr += fmt.Sprintf("%s:\n", dest)
+					for _, dep := range depList {
+						infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+					}
+					infoStr += "\n"
+				}
+
+				m.info = infoStr
 			}
 			return m, nil
 		}
@@ -114,21 +194,48 @@ func (m model) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("%s\n\nPress 'q' to quit.", m.message)
 	}
+
 	if len(m.stations) > 0 {
-		out := "\nBART Stations:\n\n"
+
+		stationList := "\nBART Stations:\n\n"
 		for i, s := range m.stations {
 			cursor := " "
 			if i == m.cursor {
 				cursor = ">"
 			}
-			out += fmt.Sprintf("%s %s, %s\n", cursor, s.Name, s.City)
+			stationList += fmt.Sprintf("%s %s, %s\n", cursor, s.Name, s.City)
 		}
+
+		departures := "\nDepartures:\n\n"
 		if m.info != "" {
-			out += "\n" + m.info + "\n"
+			departures += m.info
+		} else {
+			departures += "Press Enter to see departures"
+		}
+
+		leftLines := strings.Split(stationList, "\n")
+		rightLines := strings.Split(departures, "\n")
+
+		maxLines := len(leftLines)
+		if len(rightLines) > maxLines {
+			maxLines = len(rightLines)
+		}
+
+		var out string
+		for i := 0; i < maxLines; i++ {
+			var left, right string
+			if i < len(leftLines) {
+				left = leftLines[i]
+			}
+			if i < len(rightLines) {
+				right = rightLines[i]
+			}
+			out += fmt.Sprintf("%-70s  %s\n", left, right)
 		}
 
 		return out + "\nPress 'q' to quit. Press 'r' to refresh"
 	}
+
 	return fmt.Sprintf("%s\n\n%s\n\nPress 'q' to quit. Press 'r' to refresh", m.message, m.info)
 }
 
