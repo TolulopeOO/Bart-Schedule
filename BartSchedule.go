@@ -182,7 +182,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	case []station:
 		m.stations = msg
-		m.message = "\nLoaded..."
+		m.message = "\nLive Tracking\n============="
 		if len(m.args) > 0 {
 			stationAbbr := strings.ToUpper(m.args[0])
 			for _, st := range m.stations {
