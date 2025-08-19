@@ -183,6 +183,33 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case []station:
 		m.stations = msg
 		m.message = "\nLoaded..."
+		if len(m.args) > 0 {
+			stationAbbr := strings.ToUpper(m.args[0])
+			for _, st := range m.stations {
+				if strings.EqualFold(st.Abbr, stationAbbr) {
+					// Found the station: fetch departures immediately
+					deps, err := getDepartures(m.api_key, st.Abbr)
+					if err != nil {
+						m.info = fmt.Sprintf("Error fetching departures for %s: %v", st.Abbr, err)
+					} else {
+						var infoStr string
+						infoStr = st.Name + " Departures\n\n"
+						for dest, depList := range deps {
+							infoStr += fmt.Sprintf("%s:\n", dest)
+							for _, dep := range depList {
+								infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+							}
+							infoStr += "\n"
+						}
+						m.info = infoStr
+					}
+
+					// Clear stations so we don’t render the picker
+					m.stations = nil
+					break
+				}
+			}
+		}
 		return m, nil
 	case error:
 		m.err = msg
@@ -199,17 +226,14 @@ func (m model) View() string {
 
 	if len(m.stations) > 0 {
 
-		//stationList := "\nBART Stations:\n\n"
-
-		//args test
-		stationList := fmt.Sprintf("%s\nBART Stations\n\n", strings.Join(m.args, " "))
+		stationList := "\nBART Stations:\n\n"
 
 		for i, s := range m.stations {
 			cursor := " "
 			if i == m.cursor {
 				cursor = ">"
 			}
-			stationList += fmt.Sprintf("%s %s, %s\n", cursor, s.Name, s.City)
+			stationList += fmt.Sprintf("%s %s, (%s)\n", cursor, s.Name, s.Abbr)
 		}
 
 		departures := "\nDepartures:\n\n"
@@ -254,6 +278,7 @@ func main() {
 
 	args := os.Args[1:]
 
+	//consider removal of tea.WithAltScreen
 	p := tea.NewProgram(initialModel(api_key, args), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
 		fmt.Printf("\nError starting program: %v\n", err)
