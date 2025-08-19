@@ -18,6 +18,7 @@ type model struct {
 	api_key  string
 	cursor   int
 	info     string
+	args     []string
 }
 
 type apiResponse struct {
@@ -55,12 +56,13 @@ type departureInfo struct {
 	Platform string
 }
 
-func initialModel(api_key string) model {
+func initialModel(api_key string, args []string) model {
 	return model{
 		message: "\nLoading Bart stations...",
 		api_key: api_key,
 		cursor:  0,
 		info:    "",
+		args:    args,
 	}
 }
 
@@ -197,7 +199,11 @@ func (m model) View() string {
 
 	if len(m.stations) > 0 {
 
-		stationList := "\nBART Stations:\n\n"
+		//stationList := "\nBART Stations:\n\n"
+
+		//args test
+		stationList := fmt.Sprintf("%s\nBART Stations\n\n", strings.Join(m.args, " "))
+
 		for i, s := range m.stations {
 			cursor := " "
 			if i == m.cursor {
@@ -246,7 +252,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	p := tea.NewProgram(initialModel(api_key))
+	args := os.Args[1:]
+
+	p := tea.NewProgram(initialModel(api_key, args))
 	if err := p.Start(); err != nil {
 		fmt.Printf("\nError starting program: %v\n", err)
 		os.Exit(1)
