@@ -254,7 +254,7 @@ func main() {
 
 	args := os.Args[1:]
 
-	p := tea.NewProgram(initialModel(api_key, args))
+	p := tea.NewProgram(initialModel(api_key, args), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
 		fmt.Printf("\nError starting program: %v\n", err)
 		os.Exit(1)
