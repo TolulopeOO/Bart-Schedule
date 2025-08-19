@@ -11,16 +11,18 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// Bubbletea model that stores the state of the program
 type model struct {
-	message  string
-	stations []station
-	err      error
-	api_key  string
-	cursor   int
-	info     string
-	args     []string
+	message  string    //	status message displayed at the top
+	stations []station //	list of all the BART stations
+	err      error     //	error state if something fails
+	api_key  string    //	API key for the BART API
+	cursor   int       //	which station is currently selected on the list
+	info     string    //	departure info to be displayed
+	args     []string  //	optional CLI arguments
 }
 
+// Response shape for the BART "stations" API
 type apiResponse struct {
 	Root struct {
 		Stations struct {
@@ -29,12 +31,14 @@ type apiResponse struct {
 	} `json:"root"`
 }
 
+// Station object (name, abbreviation, city)
 type station struct {
 	Name string `json:"name"`
 	Abbr string `json:"abbr"`
 	City string `json:"city"`
 }
 
+// Response shape for the BART "ETD" API (estimated departures)
 type etdResponse struct {
 	Root struct {
 		Station []struct {
@@ -51,11 +55,13 @@ type etdResponse struct {
 	} `json:"root"`
 }
 
+// Simple departure information
 type departureInfo struct {
 	Minutes  string
 	Platform string
 }
 
+// Creates the initial Bubble Tea model
 func initialModel(api_key string, args []string) model {
 	return model{
 		message: "\nLoading Bart stations...",
@@ -66,13 +72,15 @@ func initialModel(api_key string, args []string) model {
 	}
 }
 
+// Bubble Tea Init: runs once when the program starts
 func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.SetWindowTitle("BART Schedule"),
-		fetchStations(m.api_key),
+		fetchStations(m.api_key), //	fetch the station list immediately
 	)
 }
 
+// Fetch the list of all stations
 func fetchStations(apiKey string) tea.Cmd {
 	return func() tea.Msg {
 		url := fmt.Sprintf("https://api.bart.gov/api/stn.aspx?cmd=stns&key=%s&json=y", apiKey)
@@ -89,10 +97,13 @@ func fetchStations(apiKey string) tea.Cmd {
 		if err := json.Unmarshal(body, &data); err != nil {
 			return err
 		}
+
+		//	Return the stations as a message for Update()
 		return data.Root.Stations.Station
 	}
 }
 
+// Fetch departure times for a given station abbreviation
 func getDepartures(apiKey, stationAbbr string) (map[string][]departureInfo, error) {
 	url := fmt.Sprintf(
 		"https://api.bart.gov/api/etd.aspx?cmd=etd&orig=%s&key=%s&json=y",
@@ -116,10 +127,12 @@ func getDepartures(apiKey, stationAbbr string) (map[string][]departureInfo, erro
 
 	departures := make(map[string][]departureInfo)
 
+	//	If no station data returned, exit early
 	if len(data.Root.Station) == 0 {
 		return departures, nil
 	}
 
+	// Loop through ETD data and collect departures
 	for _, st := range data.Root.Station {
 		for _, etd := range st.ETD {
 			dest := etd.Destination
@@ -135,29 +148,34 @@ func getDepartures(apiKey, stationAbbr string) (map[string][]departureInfo, erro
 	return departures, nil
 }
 
+// Handles user input and incoming messages
 func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
+
+	//	Handles keypresses
 	case tea.KeyMsg:
 		switch msg.String() {
 		case "ctrl+c", "q", "Q":
 			return m, tea.Quit
 		case "up", "k":
 			if m.cursor > 0 {
-				m.cursor--
+				m.cursor-- //	Move cursor up
 			}
 			return m, nil
 		case "down", "j":
 			if m.cursor < len(m.stations)-1 {
-				m.cursor++
+				m.cursor++ //	Move cursor down
 			}
 			return m, nil
 		case "r", "R":
+			//	Refresh station list
 			m.message = "\nRefreshing stations..."
 			m.cursor = 0
 			m.stations = nil
 			m.info = ""
 			return m, fetchStations(m.api_key)
 		case "enter":
+			//	Show departures for the selected station
 			if len(m.stations) > 0 {
 				selected := m.stations[m.cursor]
 				deps, err := getDepartures(m.api_key, selected.Abbr)
@@ -166,6 +184,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 
+				//	Format the departure info
 				var infoStr string
 				infoStr = selected.Name + "\n\n"
 				for dest, depList := range deps {
@@ -180,14 +199,18 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, nil
 		}
+
+	//	Handles message containing stations (from fetchStations)
 	case []station:
 		m.stations = msg
 		m.message = "\nLive Tracking\n============="
+
+		//	If the user provided an argument, skip the list and show departures directly
 		if len(m.args) > 0 {
 			stationAbbr := strings.ToUpper(m.args[0])
 			for _, st := range m.stations {
 				if strings.EqualFold(st.Abbr, stationAbbr) {
-					// Found the station: fetch departures immediately
+					// fetch departures immediately
 					deps, err := getDepartures(m.api_key, st.Abbr)
 					if err != nil {
 						m.info = fmt.Sprintf("Error fetching departures for %s: %v", st.Abbr, err)
@@ -204,13 +227,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 						m.info = infoStr
 					}
 
-					// Clear stations so we don’t render the picker
+					// Clear stations so the station list doesn't render
 					m.stations = nil
 					break
 				}
 			}
 		}
 		return m, nil
+
+	//	Handles errors
 	case error:
 		m.err = msg
 		m.message = "Error loading stations: " + msg.Error()
@@ -219,13 +244,16 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
+// Renders the UI
 func (m model) View() string {
 	if m.err != nil {
 		return fmt.Sprintf("%s\n\nPress 'q' to quit.", m.message)
 	}
 
+	// If there is a station list, render side-by-side view
 	if len(m.stations) > 0 {
 
+		//	Left side: station list
 		stationList := "\nBART Stations:\n\n"
 
 		for i, s := range m.stations {
@@ -236,6 +264,7 @@ func (m model) View() string {
 			stationList += fmt.Sprintf("%s %s, (%s)\n", cursor, s.Name, s.Abbr)
 		}
 
+		//	Right side: departure info (or hint text)
 		departures := "\nDepartures:\n\n"
 		if m.info != "" {
 			departures += m.info
@@ -243,6 +272,7 @@ func (m model) View() string {
 			departures += "Press Enter to see departures"
 		}
 
+		// Combine left and right columns line by line
 		leftLines := strings.Split(stationList, "\n")
 		rightLines := strings.Split(departures, "\n")
 
@@ -260,12 +290,13 @@ func (m model) View() string {
 			if i < len(rightLines) {
 				right = rightLines[i]
 			}
-			out += fmt.Sprintf("%-70s  %s\n", left, right)
+			out += fmt.Sprintf("%-70s  %s\n", left, right) //	Pad left side to align columns
 		}
 
 		return out + "\nPress 'q' to quit. Press 'r' to refresh"
 	}
 
+	//	If station list is cleared, show just message + departures
 	return fmt.Sprintf("%s\n\n%s\n\nPress 'q' to quit. Press 'r' to refresh", m.message, m.info)
 }
 
@@ -278,7 +309,8 @@ func main() {
 
 	args := os.Args[1:]
 
-	//consider removal of tea.WithAltScreen
+	//	Start Bubble Tea program
+	//	consider removal of tea.WithAltScreen
 	p := tea.NewProgram(initialModel(api_key, args), tea.WithAltScreen())
 	if err := p.Start(); err != nil {
 		fmt.Printf("\nError starting program: %v\n", err)
