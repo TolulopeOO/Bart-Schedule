@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"sort"
 	"strings"
 	"time"
 
@@ -194,7 +195,15 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				//	Format the departure info
 				var infoStr string
 				infoStr = selected.Name + "\n\n"
-				for dest, depList := range deps {
+				//	sort the departures in alphabetical order
+				var keys []string
+				for dest := range deps {
+					keys = append(keys, dest)
+				}
+				sort.Strings(keys)
+
+				for _, dest := range keys {
+					depList := deps[dest]
 					infoStr += fmt.Sprintf("%s:\n", dest)
 					for _, dep := range depList {
 						infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
@@ -226,13 +235,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					} else {
 						var infoStr string
 						infoStr = st.Name + " Departures\n\n"
-						for dest, depList := range deps {
+
+						//	sort the departures in alphabetical order
+						var keys []string
+						for dest := range deps {
+							keys = append(keys, dest)
+						}
+						sort.Strings(keys)
+
+						for _, dest := range keys {
+							depList := deps[dest]
 							infoStr += fmt.Sprintf("%s:\n", dest)
 							for _, dep := range depList {
 								infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
 							}
 							infoStr += "\n"
 						}
+
 						m.info = infoStr
 					}
 
@@ -258,13 +277,23 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					displayName = m.selectedName
 				}
 				infoStr = displayName + " Departures\n\n"
-				for dest, depList := range deps {
+
+				//	sort the departures in alphabetical order
+				var keys []string
+				for dest := range deps {
+					keys = append(keys, dest)
+				}
+				sort.Strings(keys)
+
+				for _, dest := range keys {
+					depList := deps[dest]
 					infoStr += fmt.Sprintf("%s:\n", dest)
 					for _, dep := range depList {
 						infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
 					}
 					infoStr += "\n"
 				}
+
 				m.info = infoStr
 			}
 		}
