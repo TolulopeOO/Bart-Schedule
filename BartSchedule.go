@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -206,7 +207,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					depList := deps[dest]
 					infoStr += fmt.Sprintf("%s:\n", dest)
 					for _, dep := range depList {
-						infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+						if dep.Minutes == "Leaving" {
+							infoStr += fmt.Sprintf(" %s | Platform %s\n", dep.Minutes, dep.Platform)
+						} else if min, err := strconv.Atoi(dep.Minutes); err == nil && min < 10 {
+							infoStr += fmt.Sprintf("   %s min | Platform %s\n", dep.Minutes, dep.Platform)
+						} else {
+							infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+						}
 					}
 					infoStr += "\n"
 				}
@@ -247,7 +254,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 							depList := deps[dest]
 							infoStr += fmt.Sprintf("%s:\n", dest)
 							for _, dep := range depList {
-								infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+								if dep.Minutes == "Leaving" {
+									infoStr += fmt.Sprintf(" %s | Platform %s\n", dep.Minutes, dep.Platform)
+								} else if min, err := strconv.Atoi(dep.Minutes); err == nil && min < 10 {
+									infoStr += fmt.Sprintf("   %s min | Platform %s\n", dep.Minutes, dep.Platform)
+								} else {
+									infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+								}
 							}
 							infoStr += "\n"
 						}
@@ -289,7 +302,13 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					depList := deps[dest]
 					infoStr += fmt.Sprintf("%s:\n", dest)
 					for _, dep := range depList {
-						infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+						if dep.Minutes == "Leaving" {
+							infoStr += fmt.Sprintf(" %s | Platform %s\n", dep.Minutes, dep.Platform)
+						} else if min, err := strconv.Atoi(dep.Minutes); err == nil && min < 10 {
+							infoStr += fmt.Sprintf("   %s min | Platform %s\n", dep.Minutes, dep.Platform)
+						} else {
+							infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+						}
 					}
 					infoStr += "\n"
 				}
