@@ -14,13 +14,14 @@ import (
 
 // Bubbletea model that stores the state of the program
 type model struct {
-	message  string    //	status message displayed at the top
-	stations []station //	list of all the BART stations
-	err      error     //	error state if something fails
-	api_key  string    //	API key for the BART API
-	cursor   int       //	which station is currently selected on the list
-	info     string    //	departure info to be displayed
-	args     []string  //	optional CLI arguments
+	message      string    //	status message displayed at the top
+	stations     []station //	list of all the BART stations
+	err          error     //	error state if something fails
+	api_key      string    //	API key for the BART API
+	cursor       int       //	which station is currently selected on the list
+	info         string    //	departure info to be displayed
+	args         []string  //	optional CLI arguments
+	selectedName string    //	store selected station name for args
 }
 
 // Response shape for the BART "stations" API
@@ -216,7 +217,9 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			stationAbbr := strings.ToUpper(m.args[0])
 			for _, st := range m.stations {
 				if strings.EqualFold(st.Abbr, stationAbbr) {
-					// fetch departures immediately
+					//	Save the station name
+					m.selectedName = st.Name
+					//	fetch departures immediately
 					deps, err := getDepartures(m.api_key, st.Abbr)
 					if err != nil {
 						m.info = fmt.Sprintf("Error fetching departures for %s: %v", st.Abbr, err)
@@ -250,7 +253,11 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.info = fmt.Sprintf("Error refreshing departures for %s: %v", stationAbbr, err)
 			} else {
 				var infoStr string
-				infoStr = stationAbbr + " Departures\n\n"
+				displayName := stationAbbr
+				if m.selectedName != "" {
+					displayName = m.selectedName
+				}
+				infoStr = displayName + " Departures\n\n"
 				for dest, depList := range deps {
 					infoStr += fmt.Sprintf("%s:\n", dest)
 					for _, dep := range depList {
