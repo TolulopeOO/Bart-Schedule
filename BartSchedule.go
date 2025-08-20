@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 )
@@ -61,6 +62,8 @@ type departureInfo struct {
 	Platform string
 }
 
+type tickMsg struct{}
+
 // Creates the initial Bubble Tea model
 func initialModel(api_key string, args []string) model {
 	return model{
@@ -77,6 +80,9 @@ func (m model) Init() tea.Cmd {
 	return tea.Batch(
 		tea.SetWindowTitle("BART Schedule"),
 		fetchStations(m.api_key), //	fetch the station list immediately
+		tea.Tick(5*time.Second, func(time.Time) tea.Msg {
+			return tickMsg{}
+		}),
 	)
 }
 
@@ -234,6 +240,32 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		}
 		return m, nil
+
+	case tickMsg:
+		// If locked to a station (args provided), refresh that station’s departures
+		if len(m.args) > 0 && m.stations == nil {
+			stationAbbr := strings.ToUpper(m.args[0])
+			deps, err := getDepartures(m.api_key, stationAbbr)
+			if err != nil {
+				m.info = fmt.Sprintf("Error refreshing departures for %s: %v", stationAbbr, err)
+			} else {
+				var infoStr string
+				infoStr = stationAbbr + " Departures\n\n"
+				for dest, depList := range deps {
+					infoStr += fmt.Sprintf("%s:\n", dest)
+					for _, dep := range depList {
+						infoStr += fmt.Sprintf("  %s min | Platform %s\n", dep.Minutes, dep.Platform)
+					}
+					infoStr += "\n"
+				}
+				m.info = infoStr
+			}
+		}
+
+		// schedule the next tick
+		return m, tea.Tick(5*time.Second, func(time.Time) tea.Msg {
+			return tickMsg{}
+		})
 
 	//	Handles errors
 	case error:
