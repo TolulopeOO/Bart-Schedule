@@ -124,7 +124,7 @@ func TestUpdateQuit(t *testing.T) {
 }
 
 func TestUpdateMoveCursorUp(t *testing.T) {
-	keys := []string{"up", "k"}
+	keys := []string{"up", "w", "W"}
 
 	for _, key := range keys {
 		m := model{cursor: 1, stations: []station{{}, {}}}
@@ -137,7 +137,7 @@ func TestUpdateMoveCursorUp(t *testing.T) {
 }
 
 func TestUpdateMoveCursorDown(t *testing.T) {
-	keys := []string{"down", "j"}
+	keys := []string{"down", "s", "S"}
 
 	for _, key := range keys {
 		m := model{cursor: 0, stations: []station{{}, {}}}
