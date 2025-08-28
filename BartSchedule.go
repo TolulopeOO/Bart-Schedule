@@ -169,12 +169,12 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "q", "Q":
 			return m, tea.Quit
-		case "up", "k":
+		case "up", "w", "W":
 			if m.cursor > 0 {
 				m.cursor-- //	Move cursor up
 			}
 			return m, nil
-		case "down", "j":
+		case "down", "s", "S":
 			if m.cursor < len(m.stations)-1 {
 				m.cursor++ //	Move cursor down
 			}
