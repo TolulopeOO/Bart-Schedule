@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -170,5 +171,50 @@ func TestUpdateRefreshStations(t *testing.T) {
 		if cmd == nil {
 			t.Errorf("expected fetchStations command for key %q, got nil", key)
 		}
+	}
+}
+
+func TestUpdateEnter(t *testing.T) {
+	mockResponse := `{
+		"root": {
+			"station": [{
+				"abbr": "SamD",
+				"name": "Sample Station D",
+				"etd": [{
+					"destination": "Dxxx",
+					"estimate": [
+						{"minutes": "5", "platform": "1"},
+						{"minutes": "Leaving", "platform": "2"}
+					]
+				}]
+			}]
+		}
+	}`
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(mockResponse))
+	}))
+	defer server.Close()
+
+	oldGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(server.URL)
+	}
+	defer func() { httpGet = oldGet }()
+
+	m := model{
+		api_key:  "fake_key",
+		cursor:   0,
+		stations: []station{{Name: "Test Station", Abbr: "TEST"}},
+	}
+
+	updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyEnter})
+	m2 := updated.(model)
+
+	if m2.info == "" {
+		t.Fatalf("expected departures info, got empty string")
+	}
+	if !strings.Contains(m2.info, "Dxxx") {
+		t.Errorf("expected departures to include Dxxx, got %q", m2.info)
 	}
 }
