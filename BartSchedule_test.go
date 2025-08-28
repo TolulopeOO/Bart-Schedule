@@ -68,13 +68,13 @@ func TestGetDepartures(t *testing.T) {
 	mockResponse := `{
 		"root": {
 			"station": [{
-				"abbr": "POWL",
-				"name": "Powell St.",
+				"abbr": "SamC",
+				"name": "Sample Station C",
 				"etd": [{
-					"destination": "Dublin",
+					"destination": "C",
 					"estimate": [{
 						"minutes": "5",
-						"platform": "2"
+						"platform": "1"
 					}]
 				}]
 			}]
@@ -97,10 +97,10 @@ func TestGetDepartures(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(deps["Dublin"]) == 0 {
-		t.Errorf("expected departures for Dublin, got %v", deps)
+	if len(deps["C"]) == 0 {
+		t.Errorf("expected departures for C, got %v", deps)
 	}
-	if deps["Dublin"][0].Minutes != "5" {
-		t.Errorf("expected Minutes=5, got %s", deps["Dublin"][0].Minutes)
+	if deps["C"][0].Minutes != "5" {
+		t.Errorf("expected Minutes=5, got %s", deps["C"][0].Minutes)
 	}
 }
