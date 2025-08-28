@@ -14,6 +14,9 @@ import (
 	tea "github.com/charmbracelet/bubbletea"
 )
 
+// Allow http.Get to be overridden in tests
+var httpGet = http.Get
+
 // Bubbletea model that stores the state of the program
 type model struct {
 	message      string    //	status message displayed at the top
@@ -93,7 +96,7 @@ func (m model) Init() tea.Cmd {
 func fetchStations(apiKey string) tea.Cmd {
 	return func() tea.Msg {
 		url := fmt.Sprintf("https://api.bart.gov/api/stn.aspx?cmd=stns&key=%s&json=y", apiKey)
-		resp, err := http.Get(url)
+		resp, err := httpGet(url)
 		if err != nil {
 			return err
 		}
@@ -119,7 +122,7 @@ func getDepartures(apiKey, stationAbbr string) (map[string][]departureInfo, erro
 		stationAbbr, apiKey,
 	)
 
-	resp, err := http.Get(url)
+	resp, err := httpGet(url)
 	if err != nil {
 		return nil, err
 	}

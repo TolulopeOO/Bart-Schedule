@@ -21,7 +21,7 @@ func TestInitialModel(t *testing.T) {
 }
 
 func TestFetchStations(t *testing.T) {
-	fakeResp := apiResponse{
+	mockResponse := apiResponse{
 		Root: struct {
 			Stations struct {
 				Station []station `json:"station"`
@@ -39,21 +39,17 @@ func TestFetchStations(t *testing.T) {
 	}
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		json.NewEncoder(w).Encode(fakeResp)
+		json.NewEncoder(w).Encode(mockResponse)
 	}))
 	defer server.Close()
 
-	origTransport := http.DefaultTransport
+	oldGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(server.URL)
+	}
+	defer func() { httpGet = oldGet }()
 
-	http.DefaultTransport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
-		// Rewrite the request URL host/scheme to match the test server
-		req.URL.Scheme = "http"
-		req.URL.Host = server.Listener.Addr().String()
-		return origTransport.RoundTrip(req)
-	})
-	defer func() { http.DefaultTransport = origTransport }()
-
-	cmd := fetchStations("fake_api_key")
+	cmd := fetchStations("fake_key")
 	msg := cmd()
 
 	stations, ok := msg.([]station)
@@ -68,8 +64,43 @@ func TestFetchStations(t *testing.T) {
 	}
 }
 
-type roundTripperFunc func(*http.Request) (*http.Response, error)
+func TestGetDepartures(t *testing.T) {
+	mockResponse := `{
+		"root": {
+			"station": [{
+				"abbr": "POWL",
+				"name": "Powell St.",
+				"etd": [{
+					"destination": "Dublin",
+					"estimate": [{
+						"minutes": "5",
+						"platform": "2"
+					}]
+				}]
+			}]
+		}
+	}`
 
-func (f roundTripperFunc) RoundTrip(r *http.Request) (*http.Response, error) {
-	return f(r)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Write([]byte(mockResponse))
+	}))
+	defer server.Close()
+
+	oldGet := httpGet
+	httpGet = func(url string) (*http.Response, error) {
+		return http.Get(server.URL)
+	}
+	defer func() { httpGet = oldGet }()
+
+	deps, err := getDepartures("fake_key", "POWL")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	if len(deps["Dublin"]) == 0 {
+		t.Errorf("expected departures for Dublin, got %v", deps)
+	}
+	if deps["Dublin"][0].Minutes != "5" {
+		t.Errorf("expected Minutes=5, got %s", deps["Dublin"][0].Minutes)
+	}
 }
