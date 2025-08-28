@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	tea "github.com/charmbracelet/bubbletea"
 )
 
 func TestInitialModel(t *testing.T) {
@@ -102,5 +104,71 @@ func TestGetDepartures(t *testing.T) {
 	}
 	if deps["C"][0].Minutes != "5" {
 		t.Errorf("expected Minutes=5, got %s", deps["C"][0].Minutes)
+	}
+}
+
+func TestUpdateQuit(t *testing.T) {
+	keys := []string{"q", "Q", "ctrl+c"}
+
+	for _, key := range keys {
+		m := model{}
+		updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+
+		if cmd == nil {
+			t.Errorf("expected Quit command for key %q, got nil", key)
+		}
+		if updated.(model).cursor != m.cursor {
+			t.Errorf("cursor should not change for quit")
+		}
+	}
+}
+
+func TestUpdateMoveCursorUp(t *testing.T) {
+	keys := []string{"up", "k"}
+
+	for _, key := range keys {
+		m := model{cursor: 1, stations: []station{{}, {}}}
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+
+		if updated.(model).cursor != 0 {
+			t.Errorf("expected cursor=0 after %q, got %d", key, updated.(model).cursor)
+		}
+	}
+}
+
+func TestUpdateMoveCursorDown(t *testing.T) {
+	keys := []string{"down", "j"}
+
+	for _, key := range keys {
+		m := model{cursor: 0, stations: []station{{}, {}}}
+		updated, _ := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+
+		if updated.(model).cursor != 1 {
+			t.Errorf("expected cursor=1 after %q, got %d", key, updated.(model).cursor)
+		}
+	}
+}
+
+func TestUpdateRefreshStations(t *testing.T) {
+	keys := []string{"r", "R"}
+
+	for _, key := range keys {
+		m := model{cursor: 2, stations: []station{{}, {}}, info: "old"}
+		updated, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+
+		m2 := updated.(model)
+
+		if m2.cursor != 0 {
+			t.Errorf("expected cursor reset to 0, got %d", m2.cursor)
+		}
+		if m2.stations != nil {
+			t.Errorf("expected stations to be cleared, got %v", m2.stations)
+		}
+		if m2.info != "" {
+			t.Errorf("expected info cleared, got %q", m2.info)
+		}
+		if cmd == nil {
+			t.Errorf("expected fetchStations command for key %q, got nil", key)
+		}
 	}
 }
